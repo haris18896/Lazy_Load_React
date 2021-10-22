@@ -1,15 +1,13 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import './App.css';
+import LazyComponent from  './components/LazyImages/LazyComponent.jsx'
 
 
-const lazyLoadComponent = React.lazy(() => import('./components/LazyLoad/LazyLoad.jsx'))
 
 function App() {
   return (
     <div className="app">
-        <Suspense fallback={<div>Loading...</div>}>
-          <lazyLoadComponent />
-        </Suspense>
+        <LazyComponent />
     </div>
   );
 }

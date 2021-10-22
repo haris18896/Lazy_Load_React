@@ -1,270 +1,148 @@
-# Lazy Load
+# Lazy Loading Images.
 
-## `React Lazy Load Image Component`
-`https://www.npmjs.com/package/react-lazy-load-image-component`
+
+native lazy loading is only supported in Chromium-based browsers and Firefox. so for wider browsers support, we’re going to do lazy loading using `react-lazyload`, and `styled-components` for styling.
 
 ```
+npm install --save react-lazyload styled-components
 npm i react-lazy-load-image-component
 ```
-### `LazyLoadImage usage`
-```jsx
-import React from 'react';
-import { LazyLoadImage } from 'react-lazy-load-image-component';
- 
-const MyImage = ({ image }) => (
-  <div>
-    <LazyLoadImage
-      alt={image.alt}
-      height={image.height}
-      src={image.src} // use normal <img> attributes as props
-      width={image.width} />
-    <span>{image.caption}</span>
-  </div>
-);
- 
-export default MyImage;
-```
-#### `LazyLoadImage effects`
-`LazyLoadImage` includes several effects ready to be used, they are useful to add visual candy to your application, but are completely optional in case you don't need them or want to implement you own effect.
-```jsx
-import React from 'react';
-import { LazyLoadImage } from 'react-lazy-load-image-component';
-import 'react-lazy-load-image-component/src/effects/blur.css';
- 
-const MyImage = ({ image }) => (
-  <LazyLoadImage
-    alt={image.alt}
-    effect="blur"
-    src={image.src} />
-);
-```
-1. blur: renders a blurred image based on placeholderSrc and transitions to a non-blurred one when the image specified in the src is loaded.
-2. black-and-white: renders a black and white image based on placeholderSrc and transitions to a colorful image when the image specified in the src is loaded.
-3. opacity: renders a blank space and transitions to full opacity when the image is loaded.
 
-## `LazyLoadComponent usage`
-```jsx
-import React from 'react';
-import { LazyLoadComponent } from 'react-lazy-load-image-component';
-import { ArticleContent, ArticleComments } from 'my-app';
- 
-const Article = ({ articleId }) => (
-  <div>
-    <ArticleContent id={articleId} />
-    <LazyLoadComponent>
-      <ArticleComments id={articleId} />
-    </LazyLoadComponent>
-  </div>
-);
- 
-export default Article;
-```
-#### `Using trackWindowScroll HOC to improve performance`
-When you have many elements to lazy load in the same page, you might get poor performance because each one is listening to the scroll/resize events. In that case, it's better to wrap the deepest common parent of those components with a HOC to track those events `(trackWindowScroll)`.
+## `1. Create LazyImage component`
+We’ll use this component when we want to lazy-load images.
 
-For example, if we have an App which renders a Gallery, we would wrap the Gallery component with the HOC.
+The `LazyImage` component contains `ImageWrapper, Placeholder, LazyLoad, and StyledImage`. Anything inside `LazyLoad` would not load until it appears on the `viewport`, that’s why we put `StyledImage` inside it.
 
-You must set the prop scrollPosition to the lazy load components. This way, they will know the scroll/resize events are tracked by a parent component and will not subscribe to them.
+`Placeholder` is just an empty div with animation to indicate the image is still loading. When the image finally loaded then we call `removePlaceholder` to remove Placeholder from the DOM. I use `refs` to do that instead of updating the state to prevent unnecessary re-rendering. 
+
+You can create `shimmer` or put `spinner` inside the `Placeholder`, but I just made it simple here with `animated background`. Set the `Placeholder` size the same as the image size so the transition will be smoother. 
+
+You might wanna use react-lazyload placeholder prop to put Placeholder like this:
 
 ```jsx
-import React from 'react';
-import { LazyLoadImage, trackWindowScroll }
-  from 'react-lazy-load-image-component';
- 
-const Gallery = ({ images, scrollPosition }) => (
-  <div>
-    {images.map((image) =>
-      <LazyLoadImage
-        key={image.key}
-        alt={image.alt}
-        height={image.height}
-        // Make sure to pass down the scrollPosition,
-        // this will be used by the component to know
-        // whether it must track the scroll position or not
-        scrollPosition={scrollPosition}
-        src={image.src}
-        width={image.width} />
-    )}
-  </div>
-);
-// Wrap Gallery with trackWindowScroll HOC so it receives
-// a scrollPosition prop to pass down to the images
-export default trackWindowScroll(Gallery);
+<LazyLoad placeholder={<Placeholder />}>
+  ...
+</LazyLoad>
 ```
-#### `When to use visibleByDefault?`
+But when I tried that, the Placeholder would instantly disappear when it reaches the viewport as I scroll the page even though the image is still not fully loaded, hence I put it outside and manage it with onLoad and onError events.
 
-The prop `visibleByDefault` makes the LazyLoadImage to behave like a normal <img>. Why is it useful, then?
-
-Imagine you are going to lazy-load an image you have already loaded in the same page. In that case, there is no need to lazy-load it because it's already stored in the cache of the user's browser. You can directly display it.
 
 ```jsx
-import React from 'react';
-import { LazyLoadImage, trackWindowScroll }
-  from 'react-lazy-load-image-component';
- 
-const Gallery = ({ images, scrollPosition }) => (
-  <div>
-    // We are loading landscape.jpg here
-    <img src="/landscape.jpg" alt="Beautiful landscape" />
-    {images.map((image) =>
-      <LazyLoadImage
-        key={image.key}
-        alt={image.alt}
-        scrollPosition={scrollPosition}
-        src={image.src}
-        // If the image we are creating here has the same src than before,
-        // we can directly display it with no need to lazy-load.
-        visibleByDefault={image.src === '/landscape.jpg'} />
-    )}
-  </div>
-);
- 
-export default trackWindowScroll(Gallery);
-```
+// src/components/LazyImages/LazyImageComponent.jsx
+import React, { useRef } from 'react';
+import styled, { keyframes } from "styled-components";
+import PropTypes from "prop-types";
+import LazyLoad from "react-lazyload";
 
 
+const LazyImageComponent = ({ src, alt }) => {
 
+    const refPlaceholder = useRef();
 
----
----
-# React Documentation.
+    const removePlaceholder = () => {
+        refPlaceholder.current.remove();
+    }
 
-### `Before`
-```js
-import logo from './logo.svg';
-```
-now we are going to use `React.lazy()` we can import our components using `React.lazy()` like below.
-### `after`
-```js
-const OtherComponent = React.lazy(() => import('./OtherComponent'));
-```
-`React.lazy` takes a function that must call a dynamic `import()`. This must return a Promise which resolves to a module with a default export containing a React component.
+    return (
+        <ImageWrapper>
+            <PlaceHolder
+            ref={refPlaceholder}
+            >
+                <LazyLoad>
+                    <StyledImages
+                        onLoad={removePlaceholder}
+                        onError={removePlaceholder}
+                        src={src}
+                        alt={alt}
+                     />
+                </LazyLoad>
+            </PlaceHolder>
+        </ImageWrapper>
+    );
+};
 
-The `lazy` component should then be rendered inside a `Suspense component`, which allows us to show some `fallback` content (such as a loading indicator) while we’re waiting for the lazy component to load.
-
-```jsx
-import React, { Suspense } from 'react';
-
-const OtherComponent = React.lazy(() => import('./OtherComponent'));
-
-function MyComponent() {
-  return (
-    <div>
-      <Suspense fallback={<div>Loading...</div>}>
-        <OtherComponent />
-      </Suspense>
-    </div>
-  );
+LazyImageComponent.propTypes = {
+    src: PropTypes.string.isRequired,
+    alt: PropTypes.string.isRequired
 }
+
+export default LazyImageComponent;
+
+
+
+const ImageWrapper = styled.div `
+    position: relative;
+    width: 100%;
+    height: 50vw;
+`
+const loadingAnimation = keyframes`
+  0% {
+    background-color: #fff;
+  }
+  50% {
+    background-color: #ccc;
+  }
+  100% {
+    background-color: #fff;
+  }
+`;
+
+const PlaceHolder = styled.div `
+position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    animation: ${loadingAnimation} 1s infinite;
+`
+
+const StyledImages = styled.img `
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+`
 ```
-The `fallback prop` accepts any `React elements` that you want to `render` while waiting for the component to load. You can place the `Suspense` component anywhere above the `lazy component`. You can even wrap `multiple lazy components` with a single Suspense component.
 
 ```jsx
-import React, { Suspense } from 'react';
+// src/components/LazyImages/LazyComponent.jsx
+import React from 'react';
+import styled, { createGlobalStyle} from "styled-components";
+import LazyImageComponent from './LazyImageComponent';
 
-const OtherComponent = React.lazy(() => import('./OtherComponent'));
-const AnotherComponent = React.lazy(() => import('./AnotherComponent'));
-
-function MyComponent() {
-  return (
-    <div>
-      <Suspense fallback={<div>Loading...</div>}>
-        <section>
-          <OtherComponent />
-          <AnotherComponent />
-        </section>
-      </Suspense>
-    </div>
-  );
+function LazyComponent() {
+    return (
+        <div>
+            <Global />
+            <h1>Lazy Loaded Images</h1>
+            <Grid>
+                {[...Array(50).keys()].map(i => (
+                    <LazyImageComponent
+                    key={i}
+                    src={`https://picsum.photos/1000/1000?random=${i}`}
+                    alt={`Random Image ${i}`} />
+                ))}
+            </Grid>
+        </div>
+    )
 }
+
+export default LazyComponent;
+
+const Global = createGlobalStyle `
+    body{
+        margin: 0;
+        padding: 0;
+        box-boxSizing: border-box;
+        test-align: center;
+    }
+`;
+
+const Grid = styled.div `
+    display: grid;
+    padding: 16px;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 16px;
+`
 ```
-
-* `React.lazy()` is not working with `server-side rendering` for that we will have to use `loadable`
-
-```jsx
-import loadable from '@loadable/component'
-
-const OtherComponent = loadable(() => import('./OtherComponent'))
-
-function MyComponent() {
-  return (
-    <div>
-      <OtherComponent />
-    </div>
-  )
-}
-```
----
----
-## `Error boundaries`
-
-If the other module fails to load (for example, due to network failure), it will trigger an error. You can handle these errors to show a nice user experience and manage recovery with Error Boundaries `https://reactjs.org/docs/error-boundaries.html`. Once you’ve created your Error Boundary, you can use it anywhere above your lazy components to display an error state when there’s a network error.
-
-```jsx
-import React, { Suspense } from 'react';
-import MyErrorBoundary from './MyErrorBoundary';
-
-const OtherComponent = React.lazy(() => import('./OtherComponent'));
-const AnotherComponent = React.lazy(() => import('./AnotherComponent'));
-
-const MyComponent = () => (
-  <div>
-    <MyErrorBoundary>
-      <Suspense fallback={<div>Loading...</div>}>
-        <section>
-          <OtherComponent />
-          <AnotherComponent />
-        </section>
-      </Suspense>
-    </MyErrorBoundary>
-  </div>
-);
-```
----
----
-
-## `Route-based code splitting`
-Deciding where in your app to introduce code splitting can be a bit tricky. You want to make sure you choose places that will split bundles evenly, but won’t disrupt the user experience.
-
-A good place to start is with routes. Most people on the web are used to page transitions taking some amount of time to load. You also tend to be re-rendering the entire page at once so your users are unlikely to be interacting with other elements on the page at the same time.
-
-Here’s an example of how to setup route-based code splitting into your app using libraries like `React Router` with `React.lazy`.
-
-```jsx
-import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
-
-const Home = lazy(() => import('./routes/Home'));
-const About = lazy(() => import('./routes/About'));
-
-const App = () => (
-  <Router>
-    <Suspense fallback={<div>Loading...</div>}>
-      <Switch>
-        <Route exact path="/" component={Home}/>
-        <Route path="/about" component={About}/>
-      </Switch>
-    </Suspense>
-  </Router>
-);
-```
----
----
-## `Named Exports`
-
-React.lazy currently only supports default exports. If the module you want to import uses named exports, you can create an intermediate module that reexports it as the default. This ensures that tree shaking keeps working and that you don’t pull in unused components.
-
-```jsx
-// MyComponent.js
-export { MyComponent as default } from "./ManyComponents.js";
-```
-```jsx
-// MyApp.js
-import React, { lazy } from 'react';
-const MyComponent = lazy(() => import("./MyComponent.js"));
-```
-
-
-
-
-
