@@ -1,3 +1,4 @@
+
 import React from "react";
 import styled, { createGlobalStyle } from "styled-components";
 import LazyImageComponent from "./LazyImageComponent";
@@ -18,7 +19,7 @@ const Grid = styled.div`
   grid-gap: 16px;
 `;
 
-function LazyComponent() {
+export default function App() {
   return (
     <div className="App">
       <Global />
@@ -35,5 +36,3 @@ function LazyComponent() {
     </div>
   );
 }
-
-export default LazyComponent;
